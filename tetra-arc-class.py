@@ -18,7 +18,7 @@ import numpy as np
 
 from pymeasure.log import log, console_log
 
-class IVProcedure(Procedure):
+class TetraArcVacuumProcedure(Procedure):
 
     data_points = IntegerParameter('Data points', default=20)
     averages = IntegerParameter('Averages', default=8)
@@ -28,15 +28,15 @@ class IVProcedure(Procedure):
     DATA_COLUMNS = ['Current (A)', 'Voltage (V)', 'Voltage Std (V)']
 
     def startup(self):
-        log.info("Connecting and configuring the instrument")
-        self.sourcemeter = Keithley2400("GPIB::24")
-        self.sourcemeter.reset()
-        self.sourcemeter.use_front_terminals()
-        self.sourcemeter.apply_current(100e-3, 10.0)  # current_range = 100e-3, compliance_voltage = 10.0
-        self.sourcemeter.measure_voltage(0.01, 1.0)  # nplc = 0.01, voltage_range = 1.0
-        sleep(0.1)  # wait here to give the instrument time to react
-        self.sourcemeter.stop_buffer()
-        self.sourcemeter.disable_buffer()
+        log.info("Connecting and configuring the vacuum system")
+        #self.sourcemeter = Keithley2400("GPIB::24")
+        #self.sourcemeter.reset()
+        #self.sourcemeter.use_front_terminals()
+        #self.sourcemeter.apply_current(100e-3, 10.0)  # current_range = 100e-3, compliance_voltage = 10.0
+        #self.sourcemeter.measure_voltage(0.01, 1.0)  # nplc = 0.01, voltage_range = 1.0
+        #sleep(0.1)  # wait here to give the instrument time to react
+        #self.sourcemeter.stop_buffer()
+        #self.sourcemeter.disable_buffer()
 
     def execute(self):
         currents = np.linspace(
@@ -72,8 +72,8 @@ class IVProcedure(Procedure):
 if __name__ == "__main__":
     console_log(log)
 
-    log.info("Constructing an IVProcedure")
-    procedure = IVProcedure()
+    log.info("Constructing an Tetra-arc Vacuum Procedure")
+    procedure = TetraArcVacuumProcedure()
     procedure.data_points = 20
     procedure.averages = 8
     procedure.max_current = -0.001
