@@ -27,12 +27,36 @@ class TetraArcVacuumProcedure(Procedure):
 
     DATA_COLUMNS = ['Current (A)', 'Voltage (V)', 'Voltage Std (V)']
 
-    #TMP回転数を返す関数
-    #入力 電圧[V]
-    #出力 回転数 [Hz]
-    def __tmp_rotation_speed(self.data[0]):
-        #voltage TMP REMOTE 15-10(GND) TMP回転数 10 V = 1000 Hz
-        return voltage*100
+    #TMP回転数[H]を返す関数
+    def __tmp_rotation_speed(self):
+        #data[0] voltage TMP REMOTE 15-10(GND) TMP回転数 10 V = 1000 Hz
+        return self.data[0]*100
+
+    #圧力計PKR261の圧力値[Pa]を返す関数
+    def __pressure_pkr251(self):
+        # p=10^(1.667U-d)
+        # p 圧力 [Pa]
+        # U 測定信号 [V]
+        # d = 9.333
+        d=9.333
+        #data[2] 圧力計　2-5(GND) 0 - 10 V
+        return 10**(1.667*self.data[2]-d)
+
+    #圧力計 power ON: True, OFF: False
+    def __gage_power(self):
+        return data[2]>0.1 #電源オフなら電圧ほぼゼロ
+
+    #TMP no error: True, error or power OFF: False
+    def __system_power(self):
+        return data[1]>4 #電源ON & no error : 5V
+
+    #TMP pumping now: True, otherwise: False
+    def __pumping_now(self):
+        return (data[2]<8.5 and data[2]>1.82) #真空引き中の判断 8.5->68kPa, 1.82->有効範囲下限値
+
+    #TMP error: True, no error: False
+    def __system_error(self):
+        return (self.data[1]<4 and self.pumping) #ERROR
 
 
     def startup(self):
@@ -47,6 +71,25 @@ class TetraArcVacuumProcedure(Procedure):
         #self.sourcemeter.disable_buffer()
 
     def execute(self):
+    with nidaqmx.Task() as task:
+        task.ai_channels.add_ai_voltage_chan("Dev1/ai0") #TMP REMOTE 15-10(GND) TMP回転数 10 V = 1000 Hz
+        task.ai_channels.add_ai_voltage_chan("Dev1/ai1") #TMP ERROR?
+        task.ai_channels.add_ai_voltage_chan("Dev1/ai3") #圧力計　2-5(GND) 0 - 10 V
+        data = task.read()
+        print(data)
+        rotation=self.__tmp_rotation_speed()
+        pressure=self.__pressure_pkr251(data[2])
+        gage_power_on=self.__gage_power() # pressure gage power on
+        system_power_on=self.__system_power() # system power on
+        pumping=self.__pumping_now() #真空引き中の判断 8.5->68kPa, 1.82->有効範囲下限値
+        error_alert=self.__system_error()
+        print(f"Rotation Speed [Hz]: {rotation:f}")
+        print(f"Acquired data: {data[1]:f}")
+        print(f"Pressure [Pa]: {pressure:e}")
+        print(system_power_on)
+        print(gage_power_on)
+        print(pumping)
+        print(error_alert)
         currents = np.linspace(
             self.min_current,
             self.max_current,
@@ -99,53 +142,3 @@ if __name__ == "__main__":
     log.info("Joining with the worker in at most 1 hr")
     worker.join(timeout=3600)  # wait at most 1 hr (3600 sec)
     log.info("Finished the measurement")
-
-
-
-
-#TMP回転数を返す関数
-#入力 電圧[V]
-#出力 回転数 [Hz]
-def tmp_rotation_speed(voltage):
-    #voltage TMP REMOTE 15-10(GND) TMP回転数 10 V = 1000 Hz
-    return voltage*100
-
-
-#圧力計PKR261の圧力値を返す関数
-#入力 電圧[V]
-#出力 圧力[Pa]
-#圧力計　2-5(GND) 0 - 10 V
-def pressure_pkr251(voltage):
-    # p=10^(1.667U-d)
-    # p 圧力 [Pa]
-    # U 測定信号 [V]
-    # d = 9.333
-    d=9.333
-    return 10**(1.667*voltage-d)
-
-with nidaqmx.Task() as task:
-    task.ai_channels.add_ai_voltage_chan("Dev1/ai0") #TMP REMOTE 15-10(GND) TMP回転数 10 V = 1000 Hz
-    task.ai_channels.add_ai_voltage_chan("Dev1/ai1") #TMP ERROR?
-    task.ai_channels.add_ai_voltage_chan("Dev1/ai3") #圧力計　2-5(GND) 0 - 10 V
-    data = task.read()
-    #[0.017540853936225176, 5.003844041377306, 8.577811934053898]動作時
-    # Rotation Speed [Hz]: 1.754085
-    # Acquired data: 5.003844
-    # Pressure [Pa]: 9.251507e+04
-    #[-0.02365762321278453, -0.0030583846382796764, -0.022370170801877975]電源オフ
-    #電源オフ時、エラー時に ai1= 0, 正常時 ai1=5
-
-    print(data)
-    rotation=tmp_rotation_speed(data[0])
-    pressure=pressure_pkr251(data[2])
-    gage_power_on=data[2]>0.1 #圧力計power on
-    pumping=data[2]<8.5 and data[2]>1.82 #真空引き中の判断 8.5->68kPa, 1.82->有効範囲下限値
-    error_alert=data[1]<4 and pumping
-    system_power_on=data[1]>4
-    print(f"Rotation Speed [Hz]: {rotation:f}")
-    print(f"Acquired data: {data[1]:f}")
-    print(f"Pressure [Pa]: {pressure:e}")
-    print(system_power_on)
-    print(gage_power_on)
-    print(pumping)
-    print(error_alert)
