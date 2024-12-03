@@ -27,6 +27,14 @@ class TetraArcVacuumProcedure(Procedure):
 
     DATA_COLUMNS = ['Current (A)', 'Voltage (V)', 'Voltage Std (V)']
 
+    #TMP回転数を返す関数
+    #入力 電圧[V]
+    #出力 回転数 [Hz]
+    def __tmp_rotation_speed(self.data[0]):
+        #voltage TMP REMOTE 15-10(GND) TMP回転数 10 V = 1000 Hz
+        return voltage*100
+
+
     def startup(self):
         log.info("Connecting and configuring the vacuum system")
         #self.sourcemeter = Keithley2400("GPIB::24")
